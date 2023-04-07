@@ -1,4 +1,3 @@
-mod console;
 mod extensions;
 mod runtime;
 mod state;
