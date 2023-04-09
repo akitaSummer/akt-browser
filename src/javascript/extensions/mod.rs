@@ -1,16 +1,19 @@
 mod binding;
+mod document;
 
 use std::borrow::Borrow;
 
 use lazy_static::lazy_static;
-use log::{error, trace};
+use log::{error, info, trace};
 use v8::{
     Context, ContextScope, ExternalReference, ExternalReferences, FunctionCallbackArguments,
     Global, HandleScope, Local, MapFnTo, ReturnValue,
 };
 
 use self::binding::*;
+use self::document::*;
 use super::{execute_script, JsRuntimeState};
+use crate::ui::components::alert as component_alert;
 
 const GLUE: &str = include_str!("glue.js");
 
@@ -29,13 +32,18 @@ impl Extensions {
         let global = context.global(scope);
         let scope = &mut v8::ContextScope::new(scope, context);
         initialize_window(scope, global);
+        initialize_dom(scope, global);
 
-        // binding print
+        // binding print and alert
         {
             let bindings = v8::Object::new(scope);
 
             let name = v8::String::new(scope, "print").unwrap();
             let func = v8::Function::new(scope, print).unwrap();
+            bindings.set(scope, name.into(), func.into()).unwrap();
+
+            let name = v8::String::new(scope, "alert").unwrap();
+            let func = v8::Function::new(scope, alert).unwrap();
             bindings.set(scope, name.into(), func.into()).unwrap();
 
             if let Ok(result) = execute_script(scope, GLUE) {
@@ -50,8 +58,21 @@ impl Extensions {
 
 fn print(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {
     let result: serde_json::Value = serde_v8::from_v8(scope, args.get(0)).unwrap();
-    println!("Rust say: {:#?}", result);
+    info!("Rust say: {:#?}", result);
     rv.set(serde_v8::to_v8(scope, result).unwrap());
+}
+
+fn alert(scope: &mut HandleScope, args: FunctionCallbackArguments, mut rv: ReturnValue) {
+    let message: serde_json::Value = serde_v8::from_v8(scope, args.get(0)).unwrap();
+    let pv_api_handler = JsRuntimeState::pv_api_handler(scope).unwrap();
+    match pv_api_handler.alert(message.to_string()) {
+        Ok(_) => {}
+        Err(e) => {
+            error!("failed to request alert(); {}", e);
+        }
+    };
+    let undefined = v8::undefined(scope);
+    rv.set(undefined.into());
 }
 
 pub fn initialize_window<'s>(
@@ -60,7 +81,6 @@ pub fn initialize_window<'s>(
 ) -> v8::Local<'s, v8::Object> {
     let window = create_object_under(scope, global, "window");
 
-    // `name` property
     set_accessor_to(
         scope,
         window,
@@ -69,7 +89,7 @@ pub fn initialize_window<'s>(
          key: v8::Local<v8::Name>,
          _args: v8::PropertyCallbackArguments,
          mut rv: v8::ReturnValue| {
-            trace!("Read access to: {}", key.to_rust_string_lossy(scope));
+            info!("Read access to: {}", key.to_rust_string_lossy(scope));
 
             let window = JsRuntimeState::window(scope);
             let window = window.unwrap();
@@ -77,15 +97,13 @@ pub fn initialize_window<'s>(
 
             let value = window.name.as_str();
 
-            // println!("name is: {:#?}", value);
-
             rv.set(v8::String::new(scope, value).unwrap().into());
         },
         |scope: &mut v8::HandleScope,
          key: v8::Local<v8::Name>,
          value: v8::Local<v8::Value>,
          _args: v8::PropertyCallbackArguments| {
-            trace!("Write access to: {}", key.to_rust_string_lossy(scope));
+            info!("Write access to: {}", key.to_rust_string_lossy(scope));
 
             let window = JsRuntimeState::window(scope);
             let window = window.unwrap();
@@ -93,11 +111,17 @@ pub fn initialize_window<'s>(
 
             let value = value.to_rust_string_lossy(scope);
 
-            // println!("new name is: {:#?}", value);
-
             window.name = value;
         },
     );
 
     window
+}
+
+pub fn initialize_dom<'s>(
+    scope: &mut ContextScope<'s, HandleScope>,
+    global: v8::Local<v8::Object>,
+) {
+    let document = create_document_object(scope);
+    set_property_to(scope, global, "document", document.into());
 }

@@ -79,14 +79,6 @@ where
     )
 }
 
-fn nodes_<Input>() -> impl Parser<Input, Output = Vec<Box<Node>>>
-where
-    Input: Stream<Token = char>,
-    Input::Error: ParseError<Input::Token, Input::Range, Input::Position>,
-{
-    attempt(many(choice((attempt(element()), attempt(text())))))
-}
-
 fn text<Input>() -> impl Parser<Input, Output = Box<Node>>
 where
     Input: Stream<Token = char>,
@@ -158,11 +150,12 @@ where
         .map(|v| (v.0, v.4))
 }
 
+// 使用impl Parser<Input, Output = Box<Node>>会导致返回值类型循环报错
 parser! {
     fn nodes[Input]()(Input) -> Vec<Box<Node>>
     where [Input: Stream<Token = char>]
     {
-        nodes_()
+        attempt(many(choice((attempt(element()), attempt(text())))))
     }
 }
 

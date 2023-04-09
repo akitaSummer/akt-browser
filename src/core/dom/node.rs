@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use crate::core::html::parse_without_normalziation;
+
 #[derive(Debug, PartialEq)]
 pub enum NodeType {
     Element(super::element::Element),
@@ -34,6 +36,12 @@ impl Node {
             .map(|node| node.to_string())
             .collect::<Vec<_>>()
             .join("")
+    }
+
+    pub fn set_inner_html(&mut self, html: String) -> Result<(), Box<dyn Error>> {
+        let node = parse_without_normalziation(html.as_bytes().into())?;
+        self.children = node;
+        Ok(())
     }
 }
 

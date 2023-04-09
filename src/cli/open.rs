@@ -5,6 +5,7 @@ use structopt::StructOpt;
 use crate::{
     core::window::Window,
     javascript::{JsRuntime, JsRuntimeState},
+    ui::views::{init_menu, BrowserView},
     utils,
 };
 
@@ -29,15 +30,25 @@ pub fn run(opts: Opts) {
 
     JsRuntimeState::set_window(&mut runtime.isolate, window);
 
-    let code = r#"
-    async function hello_world() {
-        print(window.name);
-        window.name = "test"
-        print(window.name);
-    }
-    hello_world();
-    "#;
+    let mut siv = cursive::default();
 
-    let result = runtime.execute_script(code);
-    println!("Result is: {:#?}", result);
+    init_menu(&mut siv);
+
+    // let code = r#"
+    // async function hello_world() {
+    //     print(window.name);
+    //     window.name = "test"
+    //     print(window.name);
+    // }
+    // hello_world();
+    // "#;
+
+    // let result = runtime.execute_script(code);
+    // println!("Result is: {:#?}", result);
+
+    let mut b = BrowserView::named(Rc::new(siv.cb_sink().clone()));
+    b.get_mut().navigate_to(start_url);
+    siv.add_fullscreen_layer(b);
+
+    siv.run();
 }

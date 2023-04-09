@@ -1,0 +1,38 @@
+<body>
+    <div id="result">
+        <p>not clicked</p>
+    </div>
+    <div>
+        <input type="submit" onclick="document.getElementById(`result`).innerHTML = `clicked!`;"
+            value="click me"></input>
+    </div>
+    <div class="inline">
+        <p>div is inline block </p>
+    </div>
+    <div class="inline">
+        <p>div is inline block</p>
+    </div>
+
+    <div>
+        <input type="submit" onclick="window.alert(`hello world!`);" value="show alert"></input>
+    </div>
+
+    <p>Go back: <a href="sample.html">Go</a>!</p>
+    <style>
+        style {
+            display: none;
+        }
+
+        div {
+            display: block;
+        }
+
+        body {
+            display: block;
+        }
+
+        .inline {
+            display: inline;
+        }
+    </style>
+</body>
